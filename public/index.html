@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nutrition Tracker</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background-color: #f5f5f5;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    header {
+      background-color: #2d6a4f;
+      color: white;
+      padding: 1rem 2rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+    }
+
+    nav {
+      display: flex;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    nav button {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    nav button:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    nav button.active {
+      background: rgba(255,255,255,0.4);
+    }
+
+    main {
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+
+    .section {
+      display: none;
+    }
+
+    .section.active {
+      display: block;
+    }
+
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .card h2 {
+      margin-bottom: 1rem;
+      color: #2d6a4f;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="file"] {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+
+    button {
+      background-color: #2d6a4f;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    button:hover {
+      background-color: #40916c;
+    }
+
+    button.secondary {
+      background-color: #777;
+    }
+
+    button.secondary:hover {
+      background-color: #555;
+    }
+
+    .nutrition-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 1rem;
+    }
+
+    .nutrition-item {
+      background: #f8f9fa;
+      padding: 1rem;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .nutrition-item .value {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #2d6a4f;
+    }
+
+    .nutrition-item .label {
+      font-size: 0.85rem;
+      color: #666;
+      margin-top: 0.25rem;
+    }
+
+    .product-list {
+      list-style: none;
+    }
+
+    .product-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      border-bottom: 1px solid #eee;
+    }
+
+    .product-list li:last-child {
+      border-bottom: none;
+    }
+
+    .product-info {
+      flex: 1;
+    }
+
+    .product-info .name {
+      font-weight: 500;
+    }
+
+    .product-info .grams {
+      font-size: 0.85rem;
+      color: #666;
+    }
+
+    .btn-delete {
+      background-color: #dc3545;
+      padding: 0.4rem 0.8rem;
+      font-size: 0.85rem;
+    }
+
+    .btn-delete:hover {
+      background-color: #c82333;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #666;
+    }
+
+    .error {
+      background-color: #fff3cd;
+      color: #856404;
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+    }
+
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+    }
+
+    .meal-plan-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .meal-plan-header h3 {
+      margin: 0;
+    }
+
+    .config-section {
+      margin-bottom: 2rem;
+    }
+
+    .config-section h3 {
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🥗 Nutrition Tracker</h1>
+    <nav>
+      <button class="active" data-section="scan">Escanear</button>
+      <button data-section="plans">Planes</button>
+      <button data-section="config">Configuración</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Scan Section -->
+    <section id="scan" class="section active">
+      <div class="card">
+        <h2>Escanear Etiqueta Nutricional</h2>
+        <p>Toma una foto de la etiqueta nutricional de un producto y la IA extraerá la información.</p>
+        <div class="form-group" style="margin-top: 1rem;">
+          <label for="imageInput">Selecciona una imagen:</label>
+          <input type="file" id="imageInput" accept="image/*">
+        </div>
+        <button id="scanBtn">Escanear</button>
+        <div id="scanResult" style="margin-top: 1rem;"></div>
+      </div>
+
+      <div class="card" id="scanResultCard" style="display: none;">
+        <h2>Resultado del Escaneo</h2>
+        <div id="scanResultContent"></div>
+        <div class="form-group" style="margin-top: 1rem;">
+          <label for="scanGrams">Gramos a consumir:</label>
+          <input type="number" id="scanGrams" value="100" min="0">
+        </div>
+        <button id="addFromScan">Agregar al plan</button>
+      </div>
+    </section>
+
+    <!-- Plans Section -->
+    <section id="plans" class="section">
+      <div class="card">
+        <h2>Crear Nuevo Plan</h2>
+        <div class="form-group">
+          <label for="planName">Nombre del plan:</label>
+          <input type="text" id="planName" placeholder="Ej: Desayuno, Almuerzo...">
+        </div>
+        <button id="createPlanBtn">Crear Plan</button>
+      </div>
+
+      <div id="plansList"></div>
+    </section>
+
+    <!-- Config Section -->
+    <section id="config" class="section">
+      <div class="card">
+        <h2>Configuración de IA</h2>
+        <p>Configura el endpoint de IA para el OCR. Usa un endpoint compatible con OpenAI.</p>
+        <div class="form-group">
+          <label for="aiUrl">URL del endpoint:</label>
+          <input type="text" id="aiUrl" placeholder="https://api.openai.com/v1">
+        </div>
+        <div class="form-group">
+          <label for="apiKey">Clave API:</label>
+          <input type="text" id="apiKey" placeholder="sk-...">
+        </div>
+        <button id="saveConfigBtn">Guardar Configuración</button>
+        <div id="configStatus" style="margin-top: 1rem;"></div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
