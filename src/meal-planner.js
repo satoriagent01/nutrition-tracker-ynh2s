@@ -19,22 +19,10 @@ export function createMealPlan(name) {
  * @param {{ id: string, name: string, items: Array, createdAt: Date }} mealPlan
  * @param {string} productId
  * @param {number} grams
+ * @param {object} productNutrition - Nutrition data per 100g/ml from OCR
  * @returns {{ id: string, name: string, items: Array, createdAt: Date }}
  */
-export function addProductToMealPlan(mealPlan, productId, grams) {
-  // Mock product nutrition for testing purposes
-  // In a real app, this would fetch the product's nutrition data
-  const productNutrition = {
-    calories: 549,
-    fats: 33,
-    saturatedFats: 13,
-    carbohydrates: 55,
-    sugars: 45,
-    fiber: 2.4,
-    protein: 6.8,
-    sodium: 0.18,
-  };
-
+export function addProductToMealPlan(mealPlan, productId, grams, productNutrition) {
   const nutrition = calculateNutrition(productNutrition, grams);
 
   return {
