@@ -1,245 +1,205 @@
 /**
- * Client-side application for the Nutrition Tracker.
- * Uses browser APIs (localStorage, fetch, FileReader) - runs in the browser.
+ * Nutrition Tracker - Frontend Application
  */
 
-import { saveToStorage, getFromStorage } from '../src/storage.js';
-import { calculateNutrition } from '../src/nutrition.js';
-import { createMealPlan, addProductToMealPlan, getMealPlanTotal } from '../src/meal-planner.js';
-import { extractNutrition } from '../src/ocr.js';
+import { extractNutrition } from "../src/ocr.js";
+import { calculateNutrition } from "../src/nutrition.js";
+import { createMealPlan, addProductToMealPlan, getMealPlanTotal } from "../src/meal-planner.js";
+import { saveToStorage, getFromStorage } from "../src/storage.js";
 
-// State
-let currentScanResult = null;
-let activePlanId = null;
+// --- State ---
+let currentMealPlan = null;
+let apiKey = localStorage.getItem("nutrition-api-key") || "";
 
-// Navigation
-document.querySelectorAll('nav button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-    document.getElementById(btn.dataset.section).classList.add('active');
-  });
+// --- DOM Elements ---
+const apiKeyInput = document.getElementById("api-key-input");
+const apiKeySaveBtn = document.getElementById("api-key-save");
+const apiKeyStatus = document.getElementById("api-key-status");
+
+const photoInput = document.getElementById("photo-input");
+const photoPreview = document.getElementById("photo-preview");
+const extractBtn = document.getElementById("extract-btn");
+const extractStatus = document.getElementById("extract-status");
+
+const productNameInput = document.getElementById("product-name");
+const productGramsInput = document.getElementById("product-grams");
+const addProductBtn = document.getElementById("add-product-btn");
+const addProductStatus = document.getElementById("add-product-status");
+
+const mealPlanNameInput = document.getElementById("meal-plan-name");
+const createPlanBtn = document.getElementById("create-plan-btn");
+const createPlanStatus = document.getElementById("create-plan-status");
+
+const mealPlanList = document.getElementById("meal-plan-list");
+const mealPlanTotals = document.getElementById("meal-plan-totals");
+
+// --- API Key ---
+apiKeyInput.value = apiKey;
+
+apiKeySaveBtn.addEventListener("click", () => {
+  apiKey = apiKeyInput.value.trim();
+  localStorage.setItem("nutrition-api-key", apiKey);
+  apiKeyStatus.textContent = "API key saved!";
+  apiKeyStatus.style.color = "green";
+  setTimeout(() => { apiKeyStatus.textContent = ""; }, 2000);
 });
 
-// Load config from localStorage
-const savedConfig = getFromStorage('nutrition-tracker-config');
-if (savedConfig) {
-  document.getElementById('aiUrl').value = savedConfig.aiUrl || '';
-  document.getElementById('apiKey').value = savedConfig.apiKey || '';
+// --- Photo Upload ---
+photoInput.addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  photoPreview.src = URL.createObjectURL(file);
+  photoPreview.style.display = "block";
+  extractBtn.disabled = false;
+  extractStatus.textContent = "";
+});
+
+extractBtn.addEventListener("click", async () => {
+  if (!apiKey) {
+    extractStatus.textContent = "Please set your API key first.";
+    extractStatus.style.color = "red";
+    return;
+  }
+
+  const file = photoInput.files[0];
+  if (!file) {
+    extractStatus.textContent = "Please select a photo first.";
+    extractStatus.style.color = "red";
+    return;
+  }
+
+  extractStatus.textContent = "Extracting nutrition info...";
+  extractStatus.style.color = "blue";
+  extractBtn.disabled = true;
+
+  try {
+    const base64 = await readFileAsBase64(file);
+    const nutritionData = await extractNutrition({ imageData: base64 }, apiKey);
+
+    productNameInput.value = "Scanned Product";
+    productGramsInput.value = "100";
+
+    // Store the OCR result for use when adding to meal plan
+    window.lastExtractedNutrition = nutritionData;
+
+    extractStatus.textContent = `Extracted: ${nutritionData.calories} kcal per ${nutritionData.servingSize || "serving"}`;
+    extractStatus.style.color = "green";
+  } catch (err) {
+    extractStatus.textContent = `Error: ${err.message}`;
+    extractStatus.style.color = "red";
+  } finally {
+    extractBtn.disabled = false;
+  }
+});
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // Remove data URL prefix
+      const base64 = reader.result.split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
-// Save config
-document.getElementById('saveConfigBtn').addEventListener('click', () => {
-  const config = {
-    aiUrl: document.getElementById('aiUrl').value,
-    apiKey: document.getElementById('apiKey').value,
-  };
-  saveToStorage('nutrition-tracker-config', config);
-  const status = document.getElementById('configStatus');
-  status.innerHTML = '<div class="success">Configuración guardada correctamente.</div>';
-  setTimeout(() => status.innerHTML = '', 3000);
+// --- Meal Plan ---
+createPlanBtn.addEventListener("click", () => {
+  const name = mealPlanNameInput.value.trim() || "My Meal Plan";
+  currentMealPlan = createMealPlan(name);
+  saveToStorage("current-meal-plan", currentMealPlan);
+  renderMealPlan();
+  createPlanStatus.textContent = `Meal plan "${name}" created!`;
+  createPlanStatus.style.color = "green";
+  setTimeout(() => { createPlanStatus.textContent = ""; }, 2000);
 });
 
-// Scan functionality
-document.getElementById('scanBtn').addEventListener('click', async () => {
-  const fileInput = document.getElementById('imageInput');
-  if (!fileInput.files.length) {
-    alert('Por favor selecciona una imagen.');
+addProductBtn.addEventListener("click", () => {
+  if (!currentMealPlan) {
+    addProductStatus.textContent = "Please create a meal plan first.";
+    addProductStatus.style.color = "red";
     return;
   }
 
-  const file = fileInput.files[0];
-  const reader = new FileReader();
+  const productId = "product-" + Date.now();
+  const grams = parseFloat(productGramsInput.value) || 100;
 
-  reader.onload = async (e) => {
-    const base64Data = e.target.result;
-
-    try {
-      const result = await extractNutrition({ imageData: base64Data });
-      currentScanResult = result;
-
-      document.getElementById('scanResultCard').style.display = 'block';
-      const content = document.getElementById('scanResultContent');
-      content.innerHTML = `
-        <div class="nutrition-grid">
-          <div class="nutrition-item">
-            <div class="value">${result.calories}</div>
-            <div class="label">Calorías (kcal)</div>
-          </div>
-          <div class="nutrition-item">
-            <div class="value">${result.fats}</div>
-            <div class="label">Grasas (g)</div>
-          </div>
-          <div class="nutrition-item">
-            <div class="value">${result.saturatedFats}</div>
-            <div class="label">Grasas saturadas (g)</div>
-          </div>
-          <div class="nutrition-item">
-            <div class="value">${result.carbohydrates}</div>
-            <div class="label">Carbohidratos (g)</div>
-          </div>
-          <div class="nutrition-item">
-            <div class="value">${result.sugars}</div>
-            <div class="label">Azúcares (g)</div>
-          </div>
-          <div class="nutrition-item">
-            <div class="value">${result.fiber}</div>
-            <div class="label">Fibra (g)</div>
-          </div>
-          <div class="nutrition-item">
-            <div class="value">${result.protein}</div>
-            <div class="label">Proteínas (g)</div>
-          </div>
-          <div class="nutrition-item">
-            <div class="value">${result.sodium}</div>
-            <div class="label">Sodio (g)</div>
-          </div>
-        </div>
-        <p style="margin-top: 1rem; color: #666;">Tamaño de porción: ${result.servingSize} ${result.servingUnit}</p>
-      `;
-    } catch (err) {
-      document.getElementById('scanResult').innerHTML = `<div class="error">Error al escanear: ${err.message}</div>`;
-    }
+  // Use the last extracted nutrition data, or default to 100g values
+  let productNutrition = window.lastExtractedNutrition || {
+    calories: 200,
+    fats: 10,
+    saturatedFats: 2,
+    carbohydrates: 25,
+    sugars: 10,
+    fiber: 1,
+    protein: 5,
+    sodium: 0.1,
+    servingSize: "100g",
+    servingUnit: "g",
   };
 
-  reader.readAsDataURL(file);
+  // Use servingSize for scaling if available
+  const servingValue = parseServingSize(productNutrition.servingSize);
+  const factor = grams / servingValue;
+
+  const nutrition = {
+    calories: productNutrition.calories * factor,
+    fats: productNutrition.fats * factor,
+    saturatedFats: productNutrition.saturatedFats * factor,
+    carbohydrates: productNutrition.carbohydrates * factor,
+    sugars: productNutrition.sugars * factor,
+    fiber: productNutrition.fiber * factor,
+    protein: productNutrition.protein * factor,
+    sodium: productNutrition.sodium * factor,
+  };
+
+  currentMealPlan = addProductToMealPlan(currentMealPlan, productId, grams, productNutrition);
+  saveToStorage("current-meal-plan", currentMealPlan);
+  renderMealPlan();
+  addProductStatus.textContent = `Added ${grams}g to meal plan!`;
+  addProductStatus.style.color = "green";
+  setTimeout(() => { addProductStatus.textContent = ""; }, 2000);
 });
 
-// Add from scan to active plan
-document.getElementById('addFromScan').addEventListener('click', () => {
-  if (!currentScanResult) return;
-
-  const grams = parseFloat(document.getElementById('scanGrams').value) || 100;
-  const scaled = calculateNutrition(currentScanResult, grams);
-
-  if (activePlanId) {
-    const plans = getFromStorage('nutrition-tracker-plans') || [];
-    const planIndex = plans.findIndex(p => p.id === activePlanId);
-    if (planIndex !== -1) {
-      const updatedPlan = addProductToMealPlan(plans[planIndex], 'scanned-product', grams);
-      updatedPlan.items[updatedPlan.items.length - 1].nutrition = scaled;
-      plans[planIndex] = updatedPlan;
-      saveToStorage('nutrition-tracker-plans', plans);
-      renderPlans();
-    }
-  } else {
-    alert('Primero crea un plan de comidas.');
-  }
-});
-
-// Create plan
-document.getElementById('createPlanBtn').addEventListener('click', () => {
-  const name = document.getElementById('planName').value.trim();
-  if (!name) {
-    alert('Por favor ingresa un nombre para el plan.');
-    return;
-  }
-
-  const plan = createMealPlan(name);
-  const plans = getFromStorage('nutrition-tracker-plans') || [];
-  plans.push(plan);
-  saveToStorage('nutrition-tracker-plans', plans);
-
-  document.getElementById('planName').value = '';
-  activePlanId = plan.id;
-  renderPlans();
-});
-
-// Render plans
-function renderPlans() {
-  const plans = getFromStorage('nutrition-tracker-plans') || [];
-  const container = document.getElementById('plansList');
-
-  if (plans.length === 0) {
-    container.innerHTML = '<div class="card"><p>No hay planes de comidas creados aún.</p></div>';
-    return;
-  }
-
-  let html = '';
-  plans.forEach(plan => {
-    const total = getMealPlanTotal(plan);
-    const isActive = plan.id === activePlanId;
-
-    html += `
-      <div class="card" style="border-left: 4px solid ${isActive ? '#2d6a4f' : '#ddd'};">
-        <div class="meal-plan-header">
-          <h3>${plan.name} ${isActive ? '(Activo)' : ''}</h3>
-          <div>
-            <button class="secondary" onclick="window.selectPlan('${plan.id}')">Seleccionar</button>
-            <button class="btn-delete" onclick="window.deletePlan('${plan.id}')">Eliminar</button>
-          </div>
-        </div>
-        <div class="nutrition-grid">
-          <div class="nutrition-item">
-            <div class="value">${total.calories.toFixed(1)}</div>
-            <div class="label">Calorías</div>
-          </div>
-          <div class="nutrition-item">
-            <div class="value">${total.fats.toFixed(1)}</div>
-            <div class="label">Grasas</div>
-          </div>
-          <div class="nutrition-item">
-            <div class="value">${total.saturatedFats.toFixed(1)}</div>
-            <div class="label">Grasas sat.</div>
-          </div>
-          <div class="nutrition-item">
-            <div class="value">${total.carbohydrates.toFixed(1)}</div>
-            <div class="label">Carbos</div>
-          </div>
-          <div class="nutrition-item">
-            <div class="value">${total.sugars.toFixed(1)}</div>
-            <div class="label">Azúcares</div>
-          </div>
-          <div class="nutrition-item">
-            <div class="value">${total.fiber.toFixed(1)}</div>
-            <div class="label">Fibra</div>
-          </div>
-          <div class="nutrition-item">
-            <div class="value">${total.protein.toFixed(1)}</div>
-            <div class="label">Proteínas</div>
-          </div>
-          <div class="nutrition-item">
-            <div class="value">${total.sodium.toFixed(2)}</div>
-            <div class="label">Sodio</div>
-          </div>
-        </div>
-        ${plan.items.length > 0 ? `
-          <ul class="product-list" style="margin-top: 1rem;">
-            ${plan.items.map(item => `
-              <li>
-                <div class="product-info">
-                  <div class="name">${item.productId}</div>
-                  <div class="grams">${item.grams}g</div>
-                </div>
-                <div>
-                  ${item.nutrition ? `${item.nutrition.calories.toFixed(1)} kcal` : ''}
-                </div>
-              </li>
-            `).join('')}
-          </ul>
-        ` : ''}
-      </div>
-    `;
-  });
-
-  container.innerHTML = html;
+function parseServingSize(servingSize) {
+  if (!servingSize) return 100;
+  const match = servingSize.match(/(\d+(?:\.\d+)?)/);
+  return match ? parseFloat(match[1]) : 100;
 }
 
-// Global functions for inline event handlers
-window.selectPlan = (id) => {
-  activePlanId = id;
-  renderPlans();
-};
+function renderMealPlan() {
+  if (!currentMealPlan) {
+    mealPlanList.innerHTML = "<p>No meal plan created yet.</p>";
+    mealPlanTotals.innerHTML = "";
+    return;
+  }
 
-window.deletePlan = (id) => {
-  if (!confirm('¿Estás seguro de eliminar este plan?')) return;
-  let plans = getFromStorage('nutrition-tracker-plans') || [];
-  plans = plans.filter(p => p.id !== id);
-  saveToStorage('nutrition-tracker-plans', plans);
-  if (activePlanId === id) activePlanId = null;
-  renderPlans();
-};
+  let html = `<h3>${currentMealPlan.name}</h3>`;
+  html += "<ul>";
+  for (const item of currentMealPlan.items) {
+    html += `<li>${item.grams}g - ${item.nutrition.calories.toFixed(1)} kcal</li>`;
+  }
+  html += "</ul>";
+  mealPlanList.innerHTML = html;
 
-// Initial render
-renderPlans();
+  const total = getMealPlanTotal(currentMealPlan);
+  mealPlanTotals.innerHTML = `
+    <h3>Total Nutrition</h3>
+    <p>Calories: ${total.calories.toFixed(1)} kcal</p>
+    <p>Fats: ${total.fats.toFixed(1)}g</p>
+    <p>Protein: ${total.protein.toFixed(1)}g</p>
+    <p>Carbohydrates: ${total.carbohydrates.toFixed(1)}g</p>
+    <p>Sugars: ${total.sugars.toFixed(1)}g</p>
+    <p>Fiber: ${total.fiber.toFixed(1)}g</p>
+  `;
+}
+
+// Load saved meal plan on startup
+const savedPlan = getFromStorage("current-meal-plan");
+if (savedPlan) {
+  currentMealPlan = savedPlan;
+  renderMealPlan();
+}
