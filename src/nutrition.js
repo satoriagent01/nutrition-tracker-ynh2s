@@ -1,34 +1,18 @@
 /**
- * Nutrition Module - Calculates nutritional values for a given amount.
+ * Nutrition Module - Calculates nutritional values for a given amount of grams.
  */
 
 /**
- * Parses a serving size string like "100g", "200ml", "50 g" into a numeric value.
- * @param {string} servingSize - e.g. "100g", "200ml"
- * @returns {number} The numeric value (default 100)
- */
-function parseServingSize(servingSize) {
-  if (!servingSize) return 100;
-  const match = servingSize.match(/(\d+(?:\.\d+)?)/);
-  return match ? parseFloat(match[1]) : 100;
-}
-
-/**
- * Calculates the nutritional values for a specific amount.
- * Uses the servingSize/servingUnit from the OCR result to determine the
- * scaling factor. If the product nutrition is per 100g/ml, the factor is
- * grams / servingSizeValue.
- *
- * @param {object} productNutrition - Nutrition data (per serving basis)
- * @param {number} grams - Amount consumed (in grams or ml)
- * @param {object} [options] - Optional
- * @param {string} [options.servingSize] - e.g. "100g" (from OCR)
- * @param {string} [options.servingUnit] - e.g. "g" or "ml" (from OCR)
+ * Calculates the nutritional values for a specific amount based on the serving size.
+ * @param {object} productNutrition - Nutrition data with servingSize and servingUnit
+ * @param {number} grams - Amount in grams (or ml)
  * @returns {object} Nutrition data scaled to the given grams
  */
-export function calculateNutrition(productNutrition, grams, options = {}) {
-  const servingValue = parseServingSize(options.servingSize);
-  const factor = grams / servingValue;
+export function calculateNutrition(productNutrition, grams) {
+  // Parse the serving size value (e.g., "100g" -> 100, "200ml" -> 200)
+  const servingSizeStr = productNutrition.servingSize || "100g";
+  const servingValue = parseFloat(servingSizeStr);
+  const factor = grams / (isNaN(servingValue) ? 100 : servingValue);
 
   return {
     calories: productNutrition.calories * factor,
