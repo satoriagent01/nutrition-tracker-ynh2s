@@ -111,144 +111,106 @@
     }
 
     button:hover {
-      background-color: #40916c;
+      background-color: #215a3f;
     }
 
-    button:disabled {
-      background-color: #ccc;
-      cursor: not-allowed;
-    }
-
-    .nutrition-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 1rem;
-    }
-
-    .nutrition-item {
-      background: #f8f9fa;
-      padding: 1rem;
+    #photo-preview {
+      max-width: 100%;
+      max-height: 300px;
       border-radius: 4px;
-      text-align: center;
+      margin-top: 1rem;
+      display: none;
     }
 
-    .nutrition-item .value {
-      font-size: 1.5rem;
-      font-weight: bold;
-      color: #2d6a4f;
-    }
-
-    .nutrition-item .label {
-      font-size: 0.85rem;
-      color: #666;
-      margin-top: 0.25rem;
-    }
-
-    .product-list {
+    #meal-plan-list ul {
       list-style: none;
+      padding: 0;
     }
 
-    .product-list li {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.75rem;
+    #meal-plan-list li {
+      padding: 0.5rem 0;
       border-bottom: 1px solid #eee;
     }
 
-    .product-list li:last-child {
-      border-bottom: none;
-    }
-
-    .loading {
-      text-align: center;
-      padding: 2rem;
-      color: #666;
-    }
-
-    .status-msg {
+    .status {
       margin-top: 0.5rem;
       font-size: 0.9rem;
     }
-
-    .status-msg.error { color: #dc3545; }
-    .status-msg.success { color: #2d6a4f; }
-    .status-msg.info { color: #007bff; }
   </style>
 </head>
 <body>
   <header>
-    <h1>🥗 Nutrition Tracker</h1>
+    <h1>Nutrition Tracker</h1>
     <nav>
-      <button class="active" data-section="scan">Scan</button>
-      <button data-section="plans">Meal Plans</button>
-      <button data-section="config">Settings</button>
+      <button class="active" data-target="scan-section">Scan</button>
+      <button data-target="mealplan-section">Meal Plan</button>
+      <button data-target="settings-section">Settings</button>
     </nav>
   </header>
 
   <main>
     <!-- Scan Section -->
-    <section id="scan" class="section active">
+    <div id="scan-section" class="section active">
       <div class="card">
         <h2>Scan Nutrition Label</h2>
-        <p>Upload a photo of a nutrition label and the AI will extract the nutritional information.</p>
-        <div class="form-group" style="margin-top: 1rem;">
-          <label for="photo-input">Select a photo:</label>
+        <div class="form-group">
+          <label for="photo-input">Upload a photo of the nutrition label</label>
           <input type="file" id="photo-input" accept="image/*">
+          <img id="photo-preview" alt="Preview">
         </div>
-        <img id="photo-preview" style="max-width: 100%; display: none; margin-top: 1rem; border-radius: 4px;" />
-        <button id="extract-btn" disabled>Extract Nutrition</button>
-        <div id="extract-status" class="status-msg"></div>
+        <button id="extract-btn">Extract Nutrition</button>
+        <p id="extract-status" class="status"></p>
       </div>
+    </div>
 
-      <div class="card" id="scan-result-card" style="display: none;">
-        <h2>Scan Result</h2>
-        <div id="scan-result-content"></div>
-        <div class="form-group" style="margin-top: 1rem;">
-          <label for="product-name">Product Name:</label>
-          <input type="text" id="product-name" value="Scanned Product">
-        </div>
-        <div class="form-group">
-          <label for="product-grams">Grams to consume:</label>
-          <input type="number" id="product-grams" value="100" min="0">
-        </div>
-        <button id="add-product-btn">Add to Meal Plan</button>
-        <div id="add-product-status" class="status-msg"></div>
-      </div>
-    </section>
-
-    <!-- Meal Plans Section -->
-    <section id="plans" class="section">
+    <!-- Meal Plan Section -->
+    <div id="mealplan-section" class="section">
       <div class="card">
-        <h2>Create New Meal Plan</h2>
+        <h2>Create Meal Plan</h2>
         <div class="form-group">
-          <label for="meal-plan-name">Plan Name:</label>
-          <input type="text" id="meal-plan-name" placeholder="e.g., Breakfast, Lunch...">
+          <label for="meal-plan-name">Plan Name</label>
+          <input type="text" id="meal-plan-name" placeholder="e.g., Daily Intake">
         </div>
         <button id="create-plan-btn">Create Plan</button>
-        <div id="create-plan-status" class="status-msg"></div>
+        <p id="create-plan-status" class="status"></p>
       </div>
 
-      <div class="card" id="meal-plan-display" style="display: none;">
-        <h2>Current Meal Plan</h2>
-        <div id="meal-plan-list"></div>
-        <div id="meal-plan-totals" style="margin-top: 1rem;"></div>
+      <div class="card">
+        <h2>Add Product</h2>
+        <div class="form-group">
+          <label for="product-name">Product Name</label>
+          <input type="text" id="product-name" placeholder="e.g., Chocolate Bar">
+        </div>
+        <div class="form-group">
+          <label for="product-grams">Amount (grams)</label>
+          <input type="number" id="product-grams" placeholder="e.g., 30">
+        </div>
+        <button id="add-product-btn">Add to Plan</button>
+        <p id="add-product-status" class="status"></p>
       </div>
-    </section>
+
+      <div class="card" id="meal-plan-list">
+        <h2>Your Meal Plan</h2>
+        <p>No meal plan created yet.</p>
+      </div>
+
+      <div class="card" id="meal-plan-totals">
+        <h2>Total Nutrition</h2>
+      </div>
+    </div>
 
     <!-- Settings Section -->
-    <section id="config" class="section">
+    <div id="settings-section" class="section">
       <div class="card">
-        <h2>AI Configuration</h2>
-        <p>Set up your OpenAI-compatible API endpoint for OCR.</p>
+        <h2>AI Settings</h2>
         <div class="form-group">
-          <label for="api-key-input">API Key:</label>
-          <input type="text" id="api-key-input" placeholder="sk-...">
+          <label for="api-key-input">API Key</label>
+          <input type="text" id="api-key-input" placeholder="Enter your OpenAI-compatible API key">
         </div>
         <button id="api-key-save">Save API Key</button>
-        <div id="api-key-status" class="status-msg"></div>
+        <p id="api-key-status" class="status"></p>
       </div>
-    </section>
+    </div>
   </main>
 
   <script type="module" src="app.js"></script>
