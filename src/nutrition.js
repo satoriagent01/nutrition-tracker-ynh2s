@@ -10,18 +10,18 @@
  */
 export function calculateNutrition(productNutrition, grams) {
   // Parse the serving size value (e.g., "100g" -> 100, "200ml" -> 200)
-  const servingSizeStr = productNutrition.servingSize || "100g";
+  const servingSizeStr = productNutrition?.servingSize || "100g";
   const servingValue = parseFloat(servingSizeStr);
   const factor = grams / (isNaN(servingValue) ? 100 : servingValue);
 
   return {
-    calories: productNutrition.calories * factor,
-    fats: productNutrition.fats * factor,
-    saturatedFats: productNutrition.saturatedFats * factor,
-    carbohydrates: productNutrition.carbohydrates * factor,
-    sugars: productNutrition.sugars * factor,
-    fiber: productNutrition.fiber * factor,
-    protein: productNutrition.protein * factor,
-    sodium: productNutrition.sodium * factor,
+    calories: (productNutrition.calories || 0) * factor,
+    fats: (productNutrition.fats || 0) * factor,
+    saturatedFats: (productNutrition.saturatedFats || 0) * factor,
+    carbohydrates: (productNutrition.carbohydrates || 0) * factor,
+    sugars: (productNutrition.sugars || 0) * factor,
+    fiber: (productNutrition.fiber || 0) * factor,
+    protein: (productNutrition.protein || 0) * factor,
+    sodium: (productNutrition.sodium || 0) * factor,
   };
 }
