@@ -19,10 +19,10 @@ export function createMealPlan(name) {
  * @param {{ id: string, name: string, items: Array, createdAt: Date }} mealPlan
  * @param {string} productId
  * @param {number} grams
- * @param {object} productNutrition - Nutrition data per 100g/ml from OCR
+ * @param {object} [productNutrition] - Nutrition data per 100g/ml from OCR (optional)
  * @returns {{ id: string, name: string, items: Array, createdAt: Date }}
  */
-export function addProductToMealPlan(mealPlan, productId, grams, productNutrition) {
+export function addProductToMealPlan(mealPlan, productId, grams, productNutrition = {}) {
   const nutrition = calculateNutrition(productNutrition, grams);
 
   return {
