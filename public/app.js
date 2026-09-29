@@ -51,17 +51,11 @@ photoInput.addEventListener("change", async (e) => {
 
   photoPreview.src = URL.createObjectURL(file);
   photoPreview.style.display = "block";
-  extractBtn.disabled = false;
   extractStatus.textContent = "";
 });
 
+// --- Extract Nutrition ---
 extractBtn.addEventListener("click", async () => {
-  if (!apiKey) {
-    extractStatus.textContent = "Please set your API key first.";
-    extractStatus.style.color = "red";
-    return;
-  }
-
   const file = photoInput.files[0];
   if (!file) {
     extractStatus.textContent = "Please select a photo first.";
@@ -69,54 +63,48 @@ extractBtn.addEventListener("click", async () => {
     return;
   }
 
-  extractStatus.textContent = "Extracting nutrition info...";
+  if (!apiKey) {
+    extractStatus.textContent = "Please save your API key first.";
+    extractStatus.style.color = "red";
+    return;
+  }
+
+  extractStatus.textContent = "Extracting...";
   extractStatus.style.color = "blue";
-  extractBtn.disabled = true;
 
   try {
     const base64 = await readFileAsBase64(file);
-    const nutritionData = await extractNutrition({ imageData: base64 }, apiKey);
+    const nutritionData = await extractNutrition(
+      { imageData: base64 },
+      { apiKey }
+    );
 
-    productNameInput.value = "Scanned Product";
-    productGramsInput.value = "100";
-
-    // Store the OCR result for use when adding to meal plan
-    window.lastExtractedNutrition = nutritionData;
-
-    extractStatus.textContent = `Extracted: ${nutritionData.calories} kcal per ${nutritionData.servingSize || "serving"}`;
+    productNameInput.value = "Product";
+    extractStatus.textContent = "Extraction complete!";
     extractStatus.style.color = "green";
   } catch (err) {
     extractStatus.textContent = `Error: ${err.message}`;
     extractStatus.style.color = "red";
-  } finally {
-    extractBtn.disabled = false;
   }
 });
 
-function readFileAsBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      // Remove data URL prefix
-      const base64 = reader.result.split(",")[1];
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 // --- Meal Plan ---
 createPlanBtn.addEventListener("click", () => {
-  const name = mealPlanNameInput.value.trim() || "My Meal Plan";
+  const name = mealPlanNameInput.value.trim();
+  if (!name) {
+    createPlanStatus.textContent = "Please enter a meal plan name.";
+    createPlanStatus.style.color = "red";
+    return;
+  }
+
   currentMealPlan = createMealPlan(name);
   saveToStorage("current-meal-plan", currentMealPlan);
-  renderMealPlan();
   createPlanStatus.textContent = `Meal plan "${name}" created!`;
   createPlanStatus.style.color = "green";
-  setTimeout(() => { createPlanStatus.textContent = ""; }, 2000);
+  updateMealPlanDisplay();
 });
 
+// --- Add Product ---
 addProductBtn.addEventListener("click", () => {
   if (!currentMealPlan) {
     addProductStatus.textContent = "Please create a meal plan first.";
@@ -124,82 +112,95 @@ addProductBtn.addEventListener("click", () => {
     return;
   }
 
-  const productId = "product-" + Date.now();
-  const grams = parseFloat(productGramsInput.value) || 100;
+  const grams = parseFloat(productGramsInput.value);
+  if (isNaN(grams) || grams <= 0) {
+    addProductStatus.textContent = "Please enter a valid amount.";
+    addProductStatus.style.color = "red";
+    return;
+  }
 
-  // Use the last extracted nutrition data, or default to 100g values
-  let productNutrition = window.lastExtractedNutrition || {
-    calories: 200,
-    fats: 10,
-    saturatedFats: 2,
-    carbohydrates: 25,
-    sugars: 10,
-    fiber: 1,
-    protein: 5,
-    sodium: 0.1,
+  // Use mock nutrition data for now (in real app, this would come from OCR)
+  const productNutrition = {
+    calories: 549,
+    fats: 33,
+    saturatedFats: 13,
+    carbohydrates: 55,
+    sugars: 45,
+    fiber: 2.4,
+    protein: 6.8,
+    sodium: 0.18,
     servingSize: "100g",
     servingUnit: "g",
   };
 
-  // Use servingSize for scaling if available
-  const servingValue = parseServingSize(productNutrition.servingSize);
-  const factor = grams / servingValue;
+  currentMealPlan = addProductToMealPlan(
+    currentMealPlan,
+    "product-1",
+    grams,
+    productNutrition
+  );
 
-  const nutrition = {
-    calories: productNutrition.calories * factor,
-    fats: productNutrition.fats * factor,
-    saturatedFats: productNutrition.saturatedFats * factor,
-    carbohydrates: productNutrition.carbohydrates * factor,
-    sugars: productNutrition.sugars * factor,
-    fiber: productNutrition.fiber * factor,
-    protein: productNutrition.protein * factor,
-    sodium: productNutrition.sodium * factor,
-  };
-
-  currentMealPlan = addProductToMealPlan(currentMealPlan, productId, grams, productNutrition);
   saveToStorage("current-meal-plan", currentMealPlan);
-  renderMealPlan();
   addProductStatus.textContent = `Added ${grams}g to meal plan!`;
   addProductStatus.style.color = "green";
-  setTimeout(() => { addProductStatus.textContent = ""; }, 2000);
+  updateMealPlanDisplay();
 });
 
-function parseServingSize(servingSize) {
-  if (!servingSize) return 100;
-  const match = servingSize.match(/(\d+(?:\.\d+)?)/);
-  return match ? parseFloat(match[1]) : 100;
-}
-
-function renderMealPlan() {
+// --- Display ---
+function updateMealPlanDisplay() {
   if (!currentMealPlan) {
     mealPlanList.innerHTML = "<p>No meal plan created yet.</p>";
     mealPlanTotals.innerHTML = "";
     return;
   }
 
-  let html = `<h3>${currentMealPlan.name}</h3>`;
-  html += "<ul>";
-  for (const item of currentMealPlan.items) {
-    html += `<li>${item.grams}g - ${item.nutrition.calories.toFixed(1)} kcal</li>`;
-  }
-  html += "</ul>";
-  mealPlanList.innerHTML = html;
-
   const total = getMealPlanTotal(currentMealPlan);
+
+  mealPlanList.innerHTML = `
+    <h3>${currentMealPlan.name}</h3>
+    <ul>
+      ${currentMealPlan.items
+        .map(
+          (item) =>
+            `<li>${item.grams}g - ${item.nutrition.calories.toFixed(1)} kcal</li>`
+        )
+        .join("")}
+    </ul>
+  `;
+
   mealPlanTotals.innerHTML = `
     <h3>Total Nutrition</h3>
     <p>Calories: ${total.calories.toFixed(1)} kcal</p>
     <p>Fats: ${total.fats.toFixed(1)}g</p>
-    <p>Protein: ${total.protein.toFixed(1)}g</p>
     <p>Carbohydrates: ${total.carbohydrates.toFixed(1)}g</p>
-    <p>Sugars: ${total.sugars.toFixed(1)}g</p>
-    <p>Fiber: ${total.fiber.toFixed(1)}g</p>
+    <p>Protein: ${total.protein.toFixed(1)}g</p>
   `;
 }
 
-// Load saved meal plan on startup
+// --- Helpers ---
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// --- Navigation ---
+document.querySelectorAll("nav button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".section").forEach((s) => s.classList.remove("active"));
+    btn.classList.add("active");
+    const target = btn.getAttribute("data-target");
+    document.getElementById(target).classList.add("active");
+  });
+});
+
+// --- Init ---
 const savedPlan = getFromStorage("current-meal-plan");
 if (savedPlan) {
   currentMealPlan = savedPlan;
-  renderMealPlan();
+  updateMealPlanDisplay();
 }
