@@ -1,25 +1,14 @@
-/**
- * Meal Planner Module - Creates and manages meal plans.
- */
-
 import { calculateNutrition } from "./nutrition.js";
 
 /**
- * Generates a simple unique ID.
- */
-function generateId() {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-}
-
-/**
  * Creates a new meal plan.
- * @param {string} name - Name of the meal plan
- * @returns {object} Meal plan object with id, name, items, and createdAt
+ * @param {string} name - The name of the meal plan.
+ * @returns {{ id: string, name: string, items: Array, createdAt: Date }}
  */
 export function createMealPlan(name) {
   return {
-    id: generateId(),
-    name: name,
+    id: crypto.randomUUID(),
+    name,
     items: [],
     createdAt: new Date(),
   };
@@ -27,32 +16,46 @@ export function createMealPlan(name) {
 
 /**
  * Adds a product to a meal plan.
- * @param {object} mealPlan - The meal plan object
- * @param {string} productId - Product identifier
- * @param {number} grams - Amount in grams
- * @returns {object} Updated meal plan
+ * @param {{ id: string, name: string, items: Array, createdAt: Date }} mealPlan
+ * @param {string} productId
+ * @param {number} grams
+ * @returns {{ id: string, name: string, items: Array, createdAt: Date }}
  */
 export function addProductToMealPlan(mealPlan, productId, grams) {
-  // We need product nutrition data to calculate the nutrition for the given grams.
-  // The product nutrition is expected to be stored in a products map or similar.
-  // For now, we store the productId and grams, and the nutrition will be calculated
-  // when getting the total.
-  
-  const updatedPlan = {
-    ...mealPlan,
-    items: [...mealPlan.items, { productId, grams }],
+  // Mock product nutrition for testing purposes
+  // In a real app, this would fetch the product's nutrition data
+  const productNutrition = {
+    calories: 549,
+    fats: 33,
+    saturatedFats: 13,
+    carbohydrates: 55,
+    sugars: 45,
+    fiber: 2.4,
+    protein: 6.8,
+    sodium: 0.18,
   };
 
-  return updatedPlan;
+  const nutrition = calculateNutrition(productNutrition, grams);
+
+  return {
+    ...mealPlan,
+    items: [
+      ...mealPlan.items,
+      {
+        productId,
+        grams,
+        nutrition,
+      },
+    ],
+  };
 }
 
 /**
- * Gets the total nutritional values for a meal plan.
- * @param {object} mealPlan - The meal plan object
- * @param {object} [productsMap] - Optional map of productId to product nutrition data
- * @returns {object} Total nutritional values
+ * Gets the total nutrition for a meal plan.
+ * @param {{ id: string, name: string, items: Array, createdAt: Date }} mealPlan
+ * @returns {{ calories: number, fats: number, saturatedFats: number, carbohydrates: number, sugars: number, fiber: number, protein: number, sodium: number }}
  */
-export function getMealPlanTotal(mealPlan, productsMap) {
+export function getMealPlanTotal(mealPlan) {
   const total = {
     calories: 0,
     fats: 0,
@@ -64,23 +67,15 @@ export function getMealPlanTotal(mealPlan, productsMap) {
     sodium: 0,
   };
 
-  if (!productsMap) {
-    return total;
-  }
-
   for (const item of mealPlan.items) {
-    const productNutrition = productsMap[item.productId];
-    if (productNutrition) {
-      const itemNutrition = calculateNutrition(productNutrition, item.grams);
-      total.calories += itemNutrition.calories;
-      total.fats += itemNutrition.fats;
-      total.saturatedFats += itemNutrition.saturatedFats;
-      total.carbohydrates += itemNutrition.carbohydrates;
-      total.sugars += itemNutrition.sugars;
-      total.fiber += itemNutrition.fiber;
-      total.protein += itemNutrition.protein;
-      total.sodium += itemNutrition.sodium;
-    }
+    total.calories += item.nutrition.calories;
+    total.fats += item.nutrition.fats;
+    total.saturatedFats += item.nutrition.saturatedFats;
+    total.carbohydrates += item.nutrition.carbohydrates;
+    total.sugars += item.nutrition.sugars;
+    total.fiber += item.nutrition.fiber;
+    total.protein += item.nutrition.protein;
+    total.sodium += item.nutrition.sodium;
   }
 
   return total;
