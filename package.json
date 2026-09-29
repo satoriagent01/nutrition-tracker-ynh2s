@@ -1,0 +1,9 @@
+{
+  "name": "nutrition-tracker",
+  "version": "1.0.0",
+  "description": "Nutrition tracker app with OCR and meal planning",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}
