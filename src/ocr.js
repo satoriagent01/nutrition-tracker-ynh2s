@@ -1,6 +1,6 @@
 /**
  * OCR Module - Extracts nutritional information from product images using AI.
- * Uses an OpenAI-compatible endpoint configured via environment variables.
+ * Uses an OpenAI-compatible endpoint. The apiKey is passed by the caller.
  */
 
 const DEFAULT_ENDPOINT = "https://api.openai.com/v1/chat/completions";
@@ -8,14 +8,17 @@ const DEFAULT_ENDPOINT = "https://api.openai.com/v1/chat/completions";
 /**
  * Extracts nutritional information from an image.
  * @param {object} imageData - Image data object with { imageData: string } (base64)
+ * @param {object} [options] - Optional configuration
+ * @param {string} [options.apiKey] - API key for the AI service
+ * @param {string} [options.endpoint] - AI endpoint URL
  * @returns {Promise<NutritionData>} Promise resolving to extracted nutrition data
  */
-export async function extractNutrition(imageData) {
-  const apiKey = process.env.OPENAI_API_KEY || "";
-  const endpoint = process.env.OPENAI_ENDPOINT || DEFAULT_ENDPOINT;
+export async function extractNutrition(imageData, options = {}) {
+  const apiKey = options.apiKey || "";
+  const endpoint = options.endpoint || DEFAULT_ENDPOINT;
 
   if (!apiKey) {
-    throw new Error("OPENAI_API_KEY environment variable is required");
+    throw new Error("API key is required");
   }
 
   const prompt = `Extract the nutritional information from this product label. Return a JSON object with the following fields based on per 100g (or per 100ml) values:
