@@ -51,44 +51,26 @@ Return ONLY valid JSON, no markdown, no explanation.`;
             {
               type: "image_url",
               image_url: {
-                url: `data:image/jpeg;base64,${imageData.imageData}`,
-                detail: "high",
+                url: `data:image/png;base64,${imageData.imageData}`,
               },
             },
           ],
         },
       ],
-      max_tokens: 500,
     }),
   });
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`AI API error: ${response.status} - ${errorBody}`);
-  }
-
   const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || "";
 
-  // Try to extract JSON from the response (handle potential markdown wrapping)
-  let jsonStr = content.trim();
-  const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  if (jsonMatch) {
-    jsonStr = jsonMatch[1].trim();
+  if (data.error) {
+    throw new Error(data.error.message || "AI API error");
   }
 
-  const parsed = JSON.parse(jsonStr);
+  const content = data.choices[0].message.content;
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error("Could not parse AI response as JSON");
+  }
 
-  return {
-    calories: Number(parsed.calories) || 0,
-    fats: Number(parsed.fats) || 0,
-    saturatedFats: Number(parsed.saturatedFats) || 0,
-    carbohydrates: Number(parsed.carbohydrates) || 0,
-    sugars: Number(parsed.sugars) || 0,
-    fiber: Number(parsed.fiber) || 0,
-    protein: Number(parsed.protein) || 0,
-    sodium: Number(parsed.sodium) || 0,
-    servingSize: parsed.servingSize || "100g",
-    servingUnit: parsed.servingUnit || "g",
-  };
+  return JSON.parse(jsonMatch[0]);
 }
